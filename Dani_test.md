@@ -42,4 +42,4 @@ ggplot(cars) +
     geom_point(aes(x = speed, y = dist))
 ```
 
-![](Dani_test_files/figure-gfm/unnamed-chunk-1-1.png)<!-- -->
+![](Dani_test_files/figure-gfm/r-1.png)<!-- -->
