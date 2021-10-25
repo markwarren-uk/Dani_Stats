@@ -1,0 +1,169 @@
+---
+title: "Motivations"
+subtitle: "EDA and model fitting"
+author: "Mark Warren"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+<style type="text/css">
+
+body{ /* Normal  */
+      font-size: 18px;
+      font-family: Helvetica;
+  }
+
+div#TOC li {
+    list-style:none;
+    background-image:none;
+    background-repeat:none;
+    background-position:0;
+}
+
+.figure {
+   margin-top: 150px;
+   margin-bottom: 150px;
+}
+
+table {
+    margin-top: 75px;
+    margin-bottom: 75px !important;
+}
+
+</style>
+
+```{r setup, message = FALSE, echo=FALSE, warning=FALSE}
+#knitr::opts_chunk$set(echo = FALSE)
+library(RColorBrewer)
+library(tidyverse)
+library(kableExtra)
+library(lubridate)
+library(knitr)
+library(scales)
+library(plotly)
+library(magrittr)
+library(broom) #For extracting model coeffs etc
+library(betareg) #For fitting beta regression
+library(readxl)
+knitr::opts_chunk$set(cache = TRUE, warning = FALSE, 
+                      message = FALSE, cache.lazy = FALSE)
+```
+
+## Data Exploration
+To better understand the dataset the questions variables were renamed so they articulated the context within which they were asked. The explanatory variables were recoded as factors to allow easier interpretable model results and also to avoid misrepresenting them as ordered numeric variables, in many cases they are not ordered.
+
+
+
+```{r data import and wrangle, message = FALSE, echo=FALSE, warning=FALSE}
+#Data Import
+Motiv <- tibble(read_excel("Motivations_FINAL_Recode_for_MW.xlsx"))
+#Remove last two rows - these are blank and the count of each column respectively
+Motiv <- Motiv[-c(1262,1263), ]
+
+#Create a list of the ones we want to keep
+MyNames <- c("Region", "Age", "Gender", "Income",  "Sustainability", "Plastic",
+"Env_Knowledge", "Time_Nature", "Protect_Env", "Env_Friendly", 
+"Env_Resp", "Donate_Amount", "Donate", "Food_Waste", "Visit_Green",
+"Active_Travel", "Recycle", "Less_Plastic", "Save_Water", "Env_Interest",
+"Env_Improve", "Env_Member", "Prev_Donate", "Diet_Now",
+"Income_Change", "Ethnic", "Education", "Block")
+
+#Select these
+Motiv <- Motiv %>% 
+    select(MyNames)
+
+#Create a proportion variable
+Motiv <- Motiv %>% 
+    mutate(Donate_Prop = Donate_Amount / 3)
+#range(Motiv$Donate_Prop)
+#from 0 to 1
+
+```
+
+
+
+```{r data exploration, message = FALSE, echo=FALSE, warning=FALSE}
+ggplot(Motiv, aes(x = factor(Region))) + 
+    geom_bar(position = "dodge") +
+    ggtitle("No. responses by region")
+#Region 1 noticeably lower (North East), 7 & 9 (London & South East) and 2 (North West) have highest
+
+ggplot(Motiv, aes(x = factor(Gender))) + 
+    geom_bar(position = "dodge") +
+    ggtitle("No. responses by gender - only keep female & male")
+#1 & 2 (Females and Males) well balanced - remove 3 and NA
+
+#Select only female and male
+Motiv <- Motiv %>% 
+    filter(Gender %in% c(1, 2))
+
+ggplot(Motiv, aes(x = factor(Age))) + 
+    geom_bar(position = "dodge")  +
+    ggtitle("No. responses by age group - remove 7 & NA")
+#75+ group very low = remove
+
+Motiv <- Motiv %>% 
+    filter(Age %in% c(1:6))
+
+
+ggplot(Motiv, aes(x = factor(Income))) + 
+    geom_bar(position = "dodge") +
+    ggtitle("No. responses by income cat - remove don't know and NA")
+#Remove 6 (Don't know) and NA
+
+Motiv <- Motiv %>% 
+    filter(Income %in% c(1:5))
+
+ggplot(Motiv, aes(x = factor(Ethnic))) + 
+    geom_bar(position = "dodge") +
+    ggtitle("No. responses by ethnicity\nnot enough from outside group1 to make inferences")
+
+#Education
+ggplot(Motiv, aes(x = factor(Education))) + 
+    geom_bar(position = "dodge") + 
+    ggtitle("No. responses by education level")
+#mainly 3 (Degree) followed by 6 (GCSE)
+
+
+ggplot(Motiv, aes(x = factor(Donate))) + 
+    geom_bar(position = "dodge") +
+    ggtitle("Distribution of binary donate response variable\nmore poeple tend to donate")
+
+ggplot(Motiv, aes(x = factor(Donate), fill = Block)) + 
+    geom_bar(position = "dodge") +
+    facet_wrap( ~ factor(Age)) + 
+    ggtitle("No. donated by age cat and frame\nEvidence of an interaction between age and frame")
+
+ggplot(Motiv, aes(x = factor(Donate), fill = Block)) + 
+    geom_bar(position = "dodge") +
+    facet_wrap( ~ factor(Env_Knowledge)) + 
+    ggtitle("No. donated by env knowledge and frame\nPossible interactions here")
+
+ggplot(Motiv, aes(x = factor(Donate))) + 
+    geom_bar(position = "dodge") +
+    facet_wrap( ~ factor(Protect_Env)) + 
+    ggtitle("No. donated by env attitude\nThe more important env protection is to you the more likely you will donate")
+
+ggplot(Motiv, aes(x = factor(Donate), fill = factor(Protect_Env))) + 
+    geom_bar(position = "dodge") +
+    facet_wrap( ~ factor(Age)) + 
+    ggtitle("No. donated by env attitude and age\nThe importance of env protection seems to be stronger with age")
+
+ggplot(Motiv, aes(x = factor(Donate))) + 
+    geom_bar(position = "dodge") +
+    facet_wrap( ~ factor(Gender)) + 
+    ggtitle("No. donated by gender\nNo difference between women and men")
+
+ggplot(Motiv, aes(x = factor(Donate), fill = factor(Protect_Env))) + 
+    geom_bar(position = "dodge") +
+    facet_wrap( ~ factor(Gender)) + 
+    ggtitle("No. donated by env attitude and gender")
+
+ggplot(Motiv, aes(x = factor(Donate), fill = factor(Gender))) + 
+    geom_bar(position = "dodge") +
+    facet_wrap( ~ factor(Age)) + 
+    ggtitle("No. donated by gender and age\nLooks like men are more likely to donate than women in older age groups ")
+#Interesting pattern men are likely to donate more than women in older age groups 
+
+
+```
