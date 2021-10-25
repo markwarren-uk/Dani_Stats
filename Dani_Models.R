@@ -1,6 +1,9 @@
 #Analysis based on Data exploration
 #Mark Warren
 
+#Remember to revisit ROC and AUC for logostics regression
+#Also try and get odds from exp(coeffs)
+
 #Libraries
 library(tidyverse)
 library(readxl)
